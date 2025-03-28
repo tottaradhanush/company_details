@@ -1,5 +1,3 @@
-
-
 import google.generativeai as genai
 import json
 import csv
@@ -18,10 +16,9 @@ genai.configure(api_key=GEMINI_API_KEY)
 def extract_json_from_response(response_text):
     """Extract valid JSON from response text using regex or direct parsing."""
     try:
-        # Attempt to directly load JSON if no formatting issues
-        return json.loads(response_text)
+        return json.loads(response_text)  # Try direct JSON parsing
     except json.JSONDecodeError:
-        # Extract JSON using regex if wrapped inside triple backticks
+        # Extract JSON wrapped inside triple backticks (if present)
         json_match = re.search(r"```json\s*(\{.*\})\s*```", response_text, re.DOTALL)
         if json_match:
             try:
@@ -52,7 +49,7 @@ def extract_information(text):
         "notable_awards": ["Best AI Company 2022", "Tech Innovation Award 2021"]
     }
     ```
-    Ensure all fields are included, even if empty.
+    Ensure all fields are included.
     """
 
     try:
@@ -60,7 +57,7 @@ def extract_information(text):
         response = model.generate_content([prompt, text])
 
         if not response or not response.text.strip():
-            print(" Empty response from API")
+            print("Empty response from API")
             return None
 
         # Extract valid JSON content
@@ -69,10 +66,10 @@ def extract_information(text):
         if cleaned_json:
             return cleaned_json
         else:
-            print(" Gemini did not return valid JSON.")
+            print("Gemini did not return valid JSON.")
             return None
     except Exception as e:
-        print(f" Error extracting data: {e}")
+        print(f"Error extracting data: {e}")
         return None
 
 # Directory containing scraped text files
@@ -90,7 +87,10 @@ company_data = []
 
 for filename in os.listdir(scraped_dir):
     if filename.endswith(".txt"):
-        company_name = filename.replace(".txt", "")  # Extract company name
+        # Extract company name and clean it
+        company_name = filename.replace(".txt", "")
+        company_name = re.sub(r"^www_|_com$", "", company_name)  
+
         with open(os.path.join(scraped_dir, filename), "r", encoding="utf-8") as file:
             scraped_text = file.read()
 
@@ -107,7 +107,7 @@ for filename in os.listdir(scraped_dir):
                 ", ".join(extracted_info.get("notable_awards", ["N/A"]))
             ])
         else:
-            print(f" Skipping {company_name}, failed to extract data.")
+            print(f"Skipping {company_name}, failed to extract data.")
 
         time.sleep(2)  # Reduce delay to 2 seconds
 
@@ -117,4 +117,4 @@ with open(output_csv, "w", newline="", encoding="utf-8") as csvfile:
     writer.writerow(csv_headers)  # Write headers
     writer.writerows(company_data)  # Write data
 
-print(f" Extracted details saved to {output_csv}")
+print(f"Extracted details saved to {output_csv}")
