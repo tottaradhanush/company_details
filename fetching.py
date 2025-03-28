@@ -1,51 +1,78 @@
 
+
 import google.generativeai as genai
 import json
 import csv
 import os
 import re
-import time  # Import time module for delay
+import time
+from dotenv import load_dotenv
 
-# Configure Gemini API Key
-genai.configure(api_key="AIzaSyCdBk2we_8zBFhzhi_QJqzr1qywXMGqqxo")  # Replace with actual API key
+# Load API Key from .env file
+load_dotenv()
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
+# Configure Gemini API
+genai.configure(api_key=GEMINI_API_KEY)
 
 def extract_json_from_response(response_text):
-    """Extracts valid JSON from response text using regex."""
-    json_match = re.search(r"```json\s*(\{.*\})\s*```", response_text, re.DOTALL)
-    if json_match:
-        return json_match.group(1)  # Extract JSON content inside triple backticks
-    return response_text.strip()  # Assume response is JSON without formatting
+    """Extract valid JSON from response text using regex or direct parsing."""
+    try:
+        # Attempt to directly load JSON if no formatting issues
+        return json.loads(response_text)
+    except json.JSONDecodeError:
+        # Extract JSON using regex if wrapped inside triple backticks
+        json_match = re.search(r"```json\s*(\{.*\})\s*```", response_text, re.DOTALL)
+        if json_match:
+            try:
+                return json.loads(json_match.group(1))
+            except json.JSONDecodeError:
+                pass
+    return None  # Return None if JSON parsing fails
 
 def extract_information(text):
-    """Extracts company details using Gemini AI."""
-    prompt = """Extract the following details from the given text,fetch the data accurately:
+    """Extract company details using Gemini AI."""
+    prompt = """Extract the following details accurately from the given text:
     - Company's mission statement or core values
     - Products or services offered
     - Founding year and founders
     - Headquarters location
     - Key executives or leadership team members
     - Notable awards or recognitions
-    Provide structured JSON output without extra text or formatting."""
+    Return the information as a **structured JSON object**.
     
+    Example JSON format:
+    ```json
+    {
+        "mission_statement": "Our mission is to innovate technology...",
+        "products_or_services": ["AI Solutions", "Cloud Services"],
+        "founding_year_and_founders": "Founded in 1995 by John Doe and Jane Smith.",
+        "headquarters_location": "San Francisco, CA, USA",
+        "key_executives": ["CEO: Alice Johnson", "CTO: Bob Martin"],
+        "notable_awards": ["Best AI Company 2022", "Tech Innovation Award 2021"]
+    }
+    ```
+    Ensure all fields are included, even if empty.
+    """
+
     try:
         model = genai.GenerativeModel("gemini-2.0-flash")
         response = model.generate_content([prompt, text])
 
         if not response or not response.text.strip():
-            print("Error: Empty response from API")
+            print(" Empty response from API")
             return None
 
         # Extract valid JSON content
         cleaned_json = extract_json_from_response(response.text)
 
-        # Ensure valid JSON
-        return json.loads(cleaned_json)
-    
-    except json.JSONDecodeError:
-        print("Error: Invalid JSON response")
-        return None
+        if cleaned_json:
+            return cleaned_json
+        else:
+            print(" Gemini did not return valid JSON.")
+            return None
     except Exception as e:
-        print(f"Error extracting data: {str(e)}")
+        print(f" Error extracting data: {e}")
         return None
 
 # Directory containing scraped text files
@@ -73,16 +100,16 @@ for filename in os.listdir(scraped_dir):
             company_data.append([
                 company_name,
                 extracted_info.get("mission_statement", "N/A"),
-                ", ".join(map(str, extracted_info.get("products_or_services") or ["N/A"])),
+                ", ".join(extracted_info.get("products_or_services", ["N/A"])),
                 extracted_info.get("founding_year_and_founders", "N/A"),
                 extracted_info.get("headquarters_location", "N/A"),
-                ", ".join(map(str, extracted_info.get("key_executives") or ["N/A"])),
-                ", ".join(map(str, extracted_info.get("notable_awards") or ["N/A"]))
+                ", ".join(extracted_info.get("key_executives", ["N/A"])),
+                ", ".join(extracted_info.get("notable_awards", ["N/A"]))
             ])
         else:
-            print(f"Skipping {company_name}, failed to extract data.")
+            print(f" Skipping {company_name}, failed to extract data.")
 
-        time.sleep(3)  # Introduce a 3-second delay between API requests
+        time.sleep(2)  # Reduce delay to 2 seconds
 
 # Write extracted data to CSV
 with open(output_csv, "w", newline="", encoding="utf-8") as csvfile:
@@ -90,6 +117,4 @@ with open(output_csv, "w", newline="", encoding="utf-8") as csvfile:
     writer.writerow(csv_headers)  # Write headers
     writer.writerows(company_data)  # Write data
 
-print(f"Extracted details saved to {output_csv}")
-
-
+print(f" Extracted details saved to {output_csv}")
