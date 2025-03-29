@@ -1,6 +1,5 @@
 import google.generativeai as genai
 import json
-import csv
 import os
 import re
 import time
@@ -74,16 +73,10 @@ def extract_information(text):
 
 # Directory containing scraped text files
 scraped_dir = "scraped_websites_text"
-output_csv = "company_details.csv"
+output_json = "company_details.json"
 
-# Prepare CSV headers
-csv_headers = [
-    "Company", "Mission Statement", "Products/Services", "Founded Year & Founders",
-    "Headquarters", "Leadership", "Awards/Recognitions"
-]
-
-# Process and extract data
-company_data = []
+# Store extracted data in a dictionary
+company_data = {}
 
 for filename in os.listdir(scraped_dir):
     if filename.endswith(".txt"):
@@ -97,24 +90,24 @@ for filename in os.listdir(scraped_dir):
         extracted_info = extract_information(scraped_text)
 
         if extracted_info:
-            company_data.append([
-                company_name,
-                extracted_info.get("mission_statement", "N/A"),
-                ", ".join(extracted_info.get("products_or_services", ["N/A"])),
-                extracted_info.get("founding_year_and_founders", "N/A"),
-                extracted_info.get("headquarters_location", "N/A"),
-                ", ".join(extracted_info.get("key_executives", ["N/A"])),
-                ", ".join(extracted_info.get("notable_awards", ["N/A"]))
-            ])
+            company_data[company_name] = {
+                "mission_statement": extracted_info.get("mission_statement", "N/A"),
+                "products_or_services": extracted_info.get("products_or_services", ["N/A"]),
+                "founding_year_and_founders": extracted_info.get("founding_year_and_founders", "N/A"),
+                "headquarters_location": extracted_info.get("headquarters_location", "N/A"),
+                "key_executives": extracted_info.get("key_executives", ["N/A"]),
+                "notable_awards": extracted_info.get("notable_awards", ["N/A"])
+            }
         else:
             print(f"Skipping {company_name}, failed to extract data.")
 
         time.sleep(2)  # Reduce delay to 2 seconds
 
-# Write extracted data to CSV
-with open(output_csv, "w", newline="", encoding="utf-8") as csvfile:
-    writer = csv.writer(csvfile)
-    writer.writerow(csv_headers)  # Write headers
-    writer.writerows(company_data)  # Write data
+# Print extracted data before writing to JSON
+print("\nExtracted Company Data:\n", json.dumps(company_data, indent=4))
 
-print(f"Extracted details saved to {output_csv}")
+# Write extracted data to JSON file
+with open(output_json, "w", encoding="utf-8") as jsonfile:
+    json.dump(company_data, jsonfile, indent=4, ensure_ascii=False)
+
+print(f"\nExtracted details saved to {output_json}")
