@@ -3,6 +3,7 @@ import json
 import os
 import re
 import time
+import csv
 from dotenv import load_dotenv
 
 # Load API Key from .env file
@@ -74,6 +75,7 @@ def extract_information(text):
 # Directory containing scraped text files
 scraped_dir = "scraped_websites_text"
 output_json = "company_details.json"
+output_csv = "company_details.csv"
 
 # Store extracted data in a dictionary
 company_data = {}
@@ -106,8 +108,31 @@ for filename in os.listdir(scraped_dir):
 # Print extracted data before writing to JSON
 print("\nExtracted Company Data:\n", json.dumps(company_data, indent=4))
 
-# Write extracted data to JSON file
-with open(output_json, "w", encoding="utf-8") as jsonfile:
-    json.dump(company_data, jsonfile, indent=4, ensure_ascii=False)
 
-print(f"\nExtracted details saved to {output_json}")
+# Define CSV headers
+csv_headers = [
+    "company_name", "mission_statement", "products_or_services",
+    "founding_year_and_founders", "headquarters_location",
+    "key_executives", "notable_awards"
+]
+
+# Write extracted data to CSV file
+with open(output_csv, "w", newline="", encoding="utf-8") as csvfile:
+    writer = csv.writer(csvfile)
+    
+    # Write header row
+    writer.writerow(csv_headers)
+    
+    # Write company data rows
+    for company, details in company_data.items():
+        writer.writerow([
+            company,
+            details["mission_statement"],
+            "; ".join(details["products_or_services"]),  # Join list elements with "; "
+            details["founding_year_and_founders"],
+            details["headquarters_location"],
+            "; ".join(details["key_executives"]),  # Join list elements with "; "
+            "; ".join(details["notable_awards"])  # Join list elements with "; "
+        ])
+
+print(f"\nExtracted details saved to {output_csv}")
